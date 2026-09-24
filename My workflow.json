@@ -1,0 +1,958 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        -192
+      ],
+      "id": "f43de172-3241-42cf-9f6f-5c3c3654259b",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "b7e41190-012d-4e2f-b43d-4f76912d65d5",
+          "mode": "list",
+          "cachedResultName": "Certificados FSC",
+          "cachedResultUrl": "https://app.notion.com/p/ccc02efe9b5749cf8fd916da1258d96f"
+        },
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Estado|select",
+              "condition": "equals",
+              "optionValue": "Vigente"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        224,
+        -384
+      ],
+      "id": "f8392158-b561-447f-939c-b18ee07eb541",
+      "name": "Get many database pages",
+      "credentials": {
+        "notionApi": {
+          "id": "QnfsfdJEgeIon8qO",
+          "name": "Notion account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const hoy = new Date();\nhoy.setHours(0, 0, 0, 0);\n\nconst msPorDia = 1000 * 60 * 60 * 24;\n\nreturn items.map(item => {\n  const j = item.json;\n\n  const rawFecha = j.property_fecha_de_vencimiento;\n  const fechaStr = (rawFecha && typeof rawFecha === 'object') ? rawFecha.start : rawFecha;\n\n  const fechaVenc = new Date(fechaStr);\n\n  if (!fechaStr || isNaN(fechaVenc.getTime())) {\n    return {\n      json: {\n        ...j,\n        dias_restantes: null,\n        ventana: null,\n        error_fecha: true\n      }\n    };\n  }\n\n  const diasRestantes = Math.round((fechaVenc - hoy) / msPorDia);\n\n  let ventana = null;\n  if (diasRestantes >= 0 && diasRestantes <= 30) ventana = 30;\n  else if (diasRestantes > 30 && diasRestantes <= 180) ventana = 180;\n\n  return {\n    json: {\n      ...j,\n      dias_restantes: diasRestantes,\n      ventana: ventana,\n      error_fecha: false\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        -384
+      ],
+      "id": "bde74c8f-bc1e-4b03-ae92-4947f0e484f2",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c681449c-f246-4b14-9187-71f7bade7eb9",
+              "leftValue": "={{ $json.ventana }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        800,
+        -384
+      ],
+      "id": "764228be-5690-40ba-816c-0082ad00d5f3",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "=Sos un asistente de asuntos regulatorios para dispositivos médicos. Tu tarea es redactar un mail de seguimiento interno sobre el vencimiento de un Certificado de Venta Libre (FSC).\n\nDatos del trámite:\n- Producto: {{ $json.property_producto }}\n- País destino: {{ $json.property_país_destino }}\n- Criticidad: {{ $json.property_criticidad }}\n- Días restantes hasta el vencimiento: {{ $json.dias_restantes }}\n- Ventana de aviso: {{ $json.ventana }} días\n\nRedactá un mail breve y profesional avisando que este certificado necesita atención. Si la criticidad es Alta o quedan 30 días o menos, marcá tono urgente. Si es una ventana de 180 días, el tono debe ser informativo, para que se inicie el trámite de renovación a tiempo.\n\nDevolvé ÚNICAMENTE un JSON válido, sin texto adicional, con este formato exacto:\n{\"prioridad\": \"alta|media|baja\", \"asunto\": \"...\", \"cuerpo_mail\": \"...\"}",
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1248,
+        -496
+      ],
+      "id": "4b0d8f87-5a98-4b42-8ec3-850d6bad727d",
+      "name": "Basic LLM Chain1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-5",
+          "cachedResultName": "Claude Sonnet 5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        1328,
+        -272
+      ],
+      "id": "494c04d5-3b1c-441a-8de4-a31766164864",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const raw = item.json.text || item.json.output || '';\n  \n  let parsed;\n  let errorIA = false;\n  \n  try {\n    // por si el modelo lo envuelve en ```json ... ```\n    const limpio = raw.replace(/```json|```/g, '').trim();\n    parsed = JSON.parse(limpio);\n  } catch (e) {\n    parsed = { prioridad: null, asunto: null, cuerpo_mail: null };\n    errorIA = true;\n  }\n\n  return {\n    json: {\n      ...item.json,\n      prioridad: parsed.prioridad,\n      asunto: parsed.asunto,\n      cuerpo_mail: parsed.cuerpo_mail,\n      error_ia: errorIA\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -384
+      ],
+      "id": "05892b07-ee6a-4e2b-8ebb-c2c01902a08e",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "=mariavergonzi@mi.unc.edu.ar",
+        "subject": "={{ $json.asunto }}",
+        "message": "={{ $json.cuerpo_mail }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1824,
+        -384
+      ],
+      "id": "db0ecce8-f1d3-4140-b68d-a3a8245fafdc",
+      "name": "Send message and wait for response",
+      "webhookId": "44ae0d5d-c6bb-47f8-98bf-d2a2ef376cf7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "JOwd9unt1wOeKqIq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9bd171ac-8b31-4d6e-94a6-1e8ee6a4b926",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2048,
+        -384
+      ],
+      "id": "b8dab338-e65f-4f01-8225-9195c757eb14",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fb88137a-045a-427f-ad2a-54e2bd56f8e8",
+              "leftValue": "={{ $json.ventana }}",
+              "rightValue": "={{ $json.property_última_ventana_notificada }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        -384
+      ],
+      "id": "ee8a09f6-f346-4ad6-9158-7a27c1be92fe",
+      "name": "Filter1"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Filter1').item.json.id }}",
+          "__regex": "^([0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12})"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Último aviso enviado|date",
+              "includeTime": false,
+              "date": "={{ $now.setZone('America/Argentina/Cordoba').toISODate() }}"
+            },
+            {
+              "key": "Última ventana notificada|number",
+              "numberValue": "={{ $('Filter1').item.json.ventana }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        2272,
+        -480
+      ],
+      "id": "d9826a77-3c2c-425f-a937-6c2cb63931b7",
+      "name": "Update a database page",
+      "credentials": {
+        "notionApi": {
+          "id": "QnfsfdJEgeIon8qO",
+          "name": "Notion account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "b5f8f87f-1230-46a0-83e7-263e8f5844cd",
+          "mode": "list",
+          "cachedResultName": "Historial de Eventos",
+          "cachedResultUrl": "https://app.notion.com/p/cfc2307ac57c497580a645ba6b60733f"
+        },
+        "title": "=     Aviso {{ $('Filter1').item.json.ventana }} días enviado - {{ $('Filter1').item.json.property_producto }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Certificado relacionado|relation",
+              "relationValue": [
+                "={{ $('Filter1').item.json.id }}"
+              ]
+            },
+            {
+              "key": "Tipo de evento|select",
+              "selectValue": "Notificación enviada"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        2496,
+        -480
+      ],
+      "id": "ed7fc392-a739-4719-8777-64b9c1931482",
+      "name": "Create a database page",
+      "credentials": {
+        "notionApi": {
+          "id": "QnfsfdJEgeIon8qO",
+          "name": "Notion account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "b7e41190-012d-4e2f-b43d-4f76912d65d5",
+          "mode": "list",
+          "cachedResultName": "Certificados FSC",
+          "cachedResultUrl": "https://app.notion.com/p/ccc02efe9b5749cf8fd916da1258d96f"
+        },
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Estado|select",
+              "condition": "equals",
+              "optionValue": "Para procesar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        224,
+        -48
+      ],
+      "id": "7f62fffa-d159-41b9-807b-c6be9d18f9ba",
+      "name": "Get many database pages1",
+      "credentials": {
+        "notionApi": {
+          "id": "QnfsfdJEgeIon8qO",
+          "name": "Notion account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Sos un asistente de asuntos regulatorios. Tu tarea es leer el siguiente texto, que es la respuesta de un organismo o proveedor sobre el estado de un trámite de Certificado de Venta Libre (FSC), y extraer datos estructurados.\n\nProducto: {{ $json.property_producto }}\nPaís destino: {{ $json.property_país_destino }}\n\nTexto a analizar:\n\"\"\"\n{{ $json.property_notas_del_trámite }}\n\"\"\"\n\nExtraé:\n- fecha_emision: la fecha en que se emitió el nuevo certificado, en formato YYYY-MM-DD. Si el texto no la menciona explícitamente, devolvé null.\n- vigencia_meses: la vigencia en meses mencionada en el texto. Si no se menciona, devolvé null.\n- certificado_confirmado: true solo si el texto confirma claramente que el certificado ya fue emitido; false si solo dice que está en trámite, en revisión, o pendiente.\n\nDevolvé ÚNICAMENTE un JSON válido, sin texto adicional, con este formato exacto:\n{\"fecha_emision\": \"...\", \"vigencia_meses\": ..., \"certificado_confirmado\": true|false}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Sos un asistente que devuelve únicamente JSON válido, sin texto adicional."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        448,
+        -48
+      ],
+      "id": "a7e77956-48cc-457c-ab09-6889e2128263",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-5",
+          "cachedResultName": "Claude Sonnet 5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        528,
+        176
+      ],
+      "id": "4fb77738-2b3e-45e6-9270-8b480e3698d8",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const original = $('Get many database pages1').item.json;\n  const raw = item.json.text || item.json.output || '';\n  \n  let parsed;\n  let errorIA = false;\n  \n  try {\n    const limpio = raw.replace(/```json|```/g, '').trim();\n    parsed = JSON.parse(limpio);\n  } catch (e) {\n    parsed = { fecha_emision: null, vigencia_meses: null, certificado_confirmado: false };\n    errorIA = true;\n  }\n\n  let nuevaFechaVencimiento = null;\n  \n  if (parsed.certificado_confirmado && parsed.fecha_emision && parsed.vigencia_meses) {\n    const emision = new Date(parsed.fecha_emision);\n    if (!isNaN(emision.getTime())) {\n      emision.setMonth(emision.getMonth() + parsed.vigencia_meses);\n      nuevaFechaVencimiento = emision.toISOString().split('T')[0];\n    } else {\n      errorIA = true;\n    }\n  }\n\n  return {\n    json: {\n      ...original,\n      fecha_emision: parsed.fecha_emision,\n      vigencia_meses: parsed.vigencia_meses,\n      certificado_confirmado: parsed.certificado_confirmado,\n      nueva_fecha_vencimiento: nuevaFechaVencimiento,\n      error_ia: errorIA\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        -48
+      ],
+      "id": "a0ebea31-0533-4717-8afd-1a598f0af560",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "85eae388-cc88-476e-8f54-738446848bec",
+              "leftValue": "={{ $json.certificado_confirmado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "96dff07d-8ecb-4049-99ca-9581561bb469",
+              "leftValue": "={{ $json.error_ia }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        -48
+      ],
+      "id": "6efc7cdc-8636-4fd0-97b9-4129cdd6feab",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "mariavergonzi@mi.unc.edu.ar",
+        "subject": "=[CONFIRMAR RENOVACIÓN] {{ $json.property_producto }} - {{ $json.property_país_destino }}",
+        "message": "=Se detectó una posible renovación de FSC.\n\nProducto: {{ $json.property_producto }}\nPaís: {{ $json.property_país_destino }}\n\nVencimiento actual: {{ $json.property_fecha_de_vencimiento }}\nFecha de emisión detectada: {{ $json.fecha_emision }}\nVigencia detectada: {{ $json.vigencia_meses }} meses\nNuevo vencimiento propuesto: {{ $json.nueva_fecha_vencimiento }}\n\nTexto original analizado:\n{{ $json.property_notas_del_trámite }}\n\n¿Confirmás la actualización?",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        -48
+      ],
+      "id": "bd347652-4139-4457-8634-c23712d7d9d0",
+      "name": "Send message and wait for response1",
+      "webhookId": "99953413-c87e-45c1-8b6b-bd189aed8253",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "JOwd9unt1wOeKqIq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f3280c2d-e5c0-401a-bfa6-184569651fb1",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1600,
+        -48
+      ],
+      "id": "084161f6-8b16-448c-a5ad-1538e7b75c3f",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Get many database pages1').item.json.id }}",
+          "mode": "id"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "=Fecha de vencimiento|date",
+              "date": "={{ $json.nueva_fecha_vencimiento }}"
+            },
+            {
+              "key": "=Fecha de emisión|date",
+              "date": "={{ $json.fecha_emision }}"
+            },
+            {
+              "key": "Estado|select",
+              "selectValue": "Vigente"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        1824,
+        -144
+      ],
+      "id": "00d07c59-8806-4f2a-97fd-9a57aede6da2",
+      "name": "Update a database page1",
+      "credentials": {
+        "notionApi": {
+          "id": "QnfsfdJEgeIon8qO",
+          "name": "Notion account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "b5f8f87f-1230-46a0-83e7-263e8f5844cd",
+          "mode": "list",
+          "cachedResultName": "Historial de Eventos",
+          "cachedResultUrl": "https://app.notion.com/p/cfc2307ac57c497580a645ba6b60733f"
+        },
+        "title": "=Renovación aprobada - {{ $json.property_producto }} - nuevo vencimiento {{ $json.nueva_fecha_vencimiento }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Certificado relacionado|relation",
+              "relationValue": [
+                "={{ $('Get many database pages1').item.json.id }}"
+              ]
+            },
+            {
+              "key": "Tipo de evento|select",
+              "selectValue": "Aprobado por humano"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        2048,
+        -144
+      ],
+      "id": "fb1a92ca-33b9-4f78-8801-5515c3d196a0",
+      "name": "Create a database page1",
+      "credentials": {
+        "notionApi": {
+          "id": "QnfsfdJEgeIon8qO",
+          "name": "Notion account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "b5f8f87f-1230-46a0-83e7-263e8f5844cd",
+          "mode": "list",
+          "cachedResultName": "Historial de Eventos",
+          "cachedResultUrl": "https://app.notion.com/p/cfc2307ac57c497580a645ba6b60733f"
+        },
+        "title": "={{ $json.error_ia ? 'Error de extracción IA' : 'Trámite aún no confirmado' }} - {{ $json.property_producto }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Certificado relacionado|relation",
+              "relationValue": [
+                "={{ $('Get many database pages1').item.json.id }}"
+              ]
+            },
+            {
+              "key": "Tipo de evento|select",
+              "selectValue": "={{ $json.error_ia ? 'Error' : 'Extracción IA' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        2272,
+        -288
+      ],
+      "id": "80a39b84-3dd6-4bab-9e63-b3f2162a8f71",
+      "name": "Create a database page2",
+      "credentials": {
+        "notionApi": {
+          "id": "QnfsfdJEgeIon8qO",
+          "name": "Notion account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "dataSourceId": {
+          "__rl": true,
+          "value": "b5f8f87f-1230-46a0-83e7-263e8f5844cd",
+          "mode": "list",
+          "cachedResultName": "Historial de Eventos",
+          "cachedResultUrl": "https://app.notion.com/p/cfc2307ac57c497580a645ba6b60733f"
+        },
+        "title": "=Renovación rechazada por humano - {{ $('Get many database pages1').item.json.property_producto }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Certificado relacionado|relation",
+              "relationValue": [
+                "={{ $('Get many database pages1').item.json.id }}"
+              ]
+            },
+            {
+              "key": "Tipo de evento|select",
+              "selectValue": "Error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 3,
+      "position": [
+        1824,
+        48
+      ],
+      "id": "833ff3f1-b51e-4ac3-9b92-9f5199917c21",
+      "name": "Create a database page3",
+      "credentials": {
+        "notionApi": {
+          "id": "QnfsfdJEgeIon8qO",
+          "name": "Notion account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many database pages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get many database pages1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many database pages": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message and wait for response": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update a database page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a database page2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter1": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a database page": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many database pages1": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message and wait for response1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Update a database page1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create a database page3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a database page1": {
+      "main": [
+        [
+          {
+            "node": "Create a database page1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8d1dda45-2dc7-4e9f-a7e1-5cebbaccb7bb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "85d8a80978ab44e823757990486c91761b0ede2673b686fc6fdfcd45a8fae35c"
+  },
+  "nodeGroups": [],
+  "id": "zowMcrmdkWb8FJpO",
+  "tags": []
+}

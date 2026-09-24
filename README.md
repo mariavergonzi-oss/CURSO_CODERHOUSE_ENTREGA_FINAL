@@ -78,12 +78,3 @@ Cada acción del sistema (avisos, extracciones, aprobaciones, rechazos y errores
 | 3 | Extracción de renovación desde texto libre (Rama B) | Datos extraídos correctamente, nuevo vencimiento calculado y aprobado |
 | 4 | Camino infeliz: fecha faltante + mail ambiguo | `error_fecha: true` descartado antes de la IA; `certificado_confirmado: false` sin modificar el registro |
 | 5 | Rechazo humano (Decline) | Registro sin cambios y rechazo registrado en el Historial |
-
----
-
-## Check de seguridad
-
-- ✅ **Filtro anti-bucle:** comparación con "Última ventana notificada".
-- ✅ **Tipos de datos correctos:** las condiciones comparan número contra número (días restantes y código de ventana).
-- ✅ **Prompt dinámico:** usa variables del registro de Notion en cada ejecución.
-- ✅ **Credenciales:** gestionadas con el sistema de credenciales de n8n; no hay claves en el JSON ni en los prompts.
